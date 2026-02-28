@@ -15,12 +15,12 @@ interface RevenueChartProps {
     dataKey?: string;
 }
 
-export default function RevenueChart({ data, dataKey = 'amount' }: RevenueChartProps) {
+export default function RevenueChart({ data, dataKey = 'value' }: RevenueChartProps) {
     return (
         <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="month" stroke="var(--muted-foreground)" />
+                <XAxis dataKey="week" stroke="var(--muted-foreground)" />
                 <YAxis stroke="var(--muted-foreground)" />
                 <Tooltip
                     contentStyle={{

@@ -89,7 +89,7 @@ export default function TeamPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <GlassPanel key={i} className="h-48 animate-pulse" />
+              <GlassPanel key={i} className="h-48 animate-pulse"><div /></GlassPanel>
             ))}
           </div>
         ) : members.length === 0 ? (

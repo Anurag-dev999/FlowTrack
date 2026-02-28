@@ -29,8 +29,8 @@ export default function WeeklyActivityChart({ data }: WeeklyActivityChartProps) 
                     }}
                 />
                 <Legend />
-                <Bar dataKey="tasks" fill="#3b82f6" />
-                <Bar dataKey="activities" fill="#10b981" />
+                <Bar dataKey="created" fill="#3b82f6" name="Created" />
+                <Bar dataKey="completed" fill="#10b981" name="Completed" />
             </BarChart>
         </ResponsiveContainer>
     );

@@ -1,25 +1,27 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/dashboard-layout';
-import { DollarSign, Clock, CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight, Users, ListTodo, TrendingUp } from 'lucide-react';
+import { Clock, CheckCircle2, Users, ListTodo, TrendingUp, Zap, Plus } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
+import { Task } from '@/lib/types';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { MetricCard } from '@/components/ui/metric-card';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import { AppButton } from '@/components/ui/app-button';
+import { WeeklyActivityChart } from '@/components/dynamic-charts';
+import {
+  computeDashboardMetrics,
+  tasksPerWeek,
+} from '@/lib/analytics';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    revenue: '$0',
-    pendingTasks: '0',
-    completedTasks: '0',
-    teamSize: '0',
-  });
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [teamSize, setTeamSize] = useState(0);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
@@ -27,123 +29,171 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const [revRes, tasksRes, teamRes, activityRes] = await Promise.all([
-        supabaseClient.from('revenue').select('amount'),
-        supabaseClient.from('tasks').select('status'),
+      const [tasksRes, teamRes, activityRes] = await Promise.all([
+        supabaseClient
+          .from('tasks')
+          .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at'),
         supabaseClient.from('team_members').select('id'),
-        supabaseClient.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5),
+        supabaseClient
+          .from('activity_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5),
       ]);
 
-      const totalRevenue = revRes.data?.reduce((sum, item) => sum + item.amount, 0) || 0;
-      const pending = tasksRes.data?.filter(t => t.status !== 'Completed').length || 0;
-      const completed = tasksRes.data?.filter(t => t.status === 'Completed').length || 0;
-
-      setStats({
-        revenue: `$${totalRevenue.toLocaleString()}`,
-        pendingTasks: pending.toString(),
-        completedTasks: completed.toString(),
-        teamSize: (teamRes.data?.length || 0).toString(),
-      });
+      setTasks(
+        (tasksRes.data || []).map((t: any) => ({
+          ...t,
+          estimated_value: t.estimated_value ?? 10,
+        }))
+      );
+      setTeamSize(teamRes.data?.length || 0);
       setRecentActivities(activityRes.data || []);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+    } catch {
+      // silently handle — empty state will show
+    } finally {
       setLoading(false);
     }
   };
 
+  // Memoize analytics to avoid recomputation on every render
+  const metrics = useMemo(() => computeDashboardMetrics(tasks), [tasks]);
+  const weeklyChartData = useMemo(() => tasksPerWeek(tasks), [tasks]);
+
+  const hasTasks = tasks.length > 0;
+  const growth = metrics.weeklyGrowth;
+  const growthTrend =
+    growth !== 0
+      ? { value: `${Math.abs(growth)}%`, isUp: growth > 0 }
+      : undefined;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <PageContainer>
+          <div className="flex justify-center py-32">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+          </div>
+        </PageContainer>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <PageContainer>
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-primary">Demonstration Environment</h2>
-            <p className="text-sm text-primary/70 mt-1">These are curated values for preview. You can reset to a clean state in settings.</p>
-          </div>
-          <Link href="/settings">
-            <AppButton variant="outline" size="sm" className="bg-white/50 dark:bg-black/20">
-              Manage Data
-            </AppButton>
-          </Link>
-        </div>
-
-        <PageHeader 
-          title="Welcome to FlowTrack" 
+        <PageHeader
+          title="Welcome to FlowTrack"
           description="Overview of your workspace performance and team activity"
         />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard
-            title="Total Revenue"
-            value={stats.revenue}
-            icon={DollarSign}
-            trend={{ value: '12%', isUp: true }}
-            color="green"
-          />
-          <MetricCard
-            title="Pending Tasks"
-            value={stats.pendingTasks}
-            icon={Clock}
-            trend={{ value: '2', isUp: false }}
-            color="orange"
-          />
-          <MetricCard
-            title="Completed Tasks"
-            value={stats.completedTasks}
-            icon={CheckCircle2}
-            trend={{ value: '8', isUp: true }}
-            color="purple"
-          />
-          <MetricCard
-            title="Team Size"
-            value={stats.teamSize}
-            icon={Users}
-            color="blue"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Chart Area placeholder or Recent Tasks */}
-          <GlassPanel className="lg:col-span-2 p-6">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-lg font-semibold">Workspace Traffic</h3>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold">
-                  <TrendingUp className="w-3 h-3" />
-                  +24% Growth
-                </div>
+        {/* ─── Empty state / Onboarding ─── */}
+        {!hasTasks ? (
+          <GlassPanel className="p-12 text-center">
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                <ListTodo className="w-8 h-8 text-primary" />
               </div>
-            </div>
-            <div className="h-[300px] w-full bg-muted/30 rounded-xl animate-pulse flex items-center justify-center border border-dashed border-border">
-              <p className="text-muted-foreground text-sm font-medium italic">Traffic Analytics Layer</p>
+              <h2 className="text-2xl font-bold">Get Started with FlowTrack</h2>
+              <p className="text-muted-foreground">
+                Create your first task to start tracking productivity. Analytics will unlock progressively as you add activity.
+              </p>
+              <Link href="/tasks">
+                <AppButton className="mt-4">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Task
+                </AppButton>
+              </Link>
             </div>
           </GlassPanel>
+        ) : (
+          <>
+            {/* ─── Stats Grid ─── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MetricCard
+                title="Productivity Value"
+                value={metrics.productivityValue.toString()}
+                icon={Zap}
+                trend={growthTrend}
+                color="green"
+              />
+              <MetricCard
+                title="Pending Tasks"
+                value={metrics.pendingTasks.toString()}
+                icon={Clock}
+                color="orange"
+              />
+              <MetricCard
+                title="Completed Tasks"
+                value={metrics.completedTasks.toString()}
+                icon={CheckCircle2}
+                color="purple"
+              />
+              <MetricCard
+                title="Team Size"
+                value={teamSize.toString()}
+                icon={Users}
+                color="blue"
+              />
+            </div>
 
-          {/* Activity Log */}
-          <GlassPanel className="p-6">
-            <h3 className="text-lg font-semibold mb-6">Recent Activity</h3>
-            <div className="space-y-6">
-              {recentActivities.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic text-center py-8">No recent logs recorded.</p>
-              ) : (
-                recentActivities.map((activity, i) => (
-                  <div key={activity.id} className="flex gap-4 group cursor-default">
-                    <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0 shadow-glow shadow-primary/40 group-hover:scale-125 transition-transform" />
-                    <div>
-                      <p className="text-sm font-semibold text-foreground leading-tight">{activity.action}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1 font-medium">{activity.details}</p>
-                      <p className="text-[10px] text-muted-foreground/50 mt-1 font-bold italic">{new Date(activity.created_at).toLocaleTimeString()}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Task Activity Chart */}
+              <GlassPanel className="lg:col-span-2 p-6">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-lg font-semibold">Task Activity</h3>
+                  {growth !== 0 && (
+                    <div
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold ${growth > 0
+                          ? 'bg-green-500/10 text-green-500'
+                          : 'bg-red-500/10 text-red-500'
+                        }`}
+                    >
+                      <TrendingUp className="w-3 h-3" />
+                      {growth > 0 ? '+' : ''}
+                      {growth}% Weekly
                     </div>
-                  </div>
-                ))
-              )}
+                  )}
+                </div>
+                <div className="h-[300px]">
+                  <WeeklyActivityChart data={weeklyChartData} />
+                </div>
+              </GlassPanel>
+
+              {/* Activity Log */}
+              <GlassPanel className="p-6">
+                <h3 className="text-lg font-semibold mb-6">Recent Activity</h3>
+                <div className="space-y-6">
+                  {recentActivities.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic text-center py-8">
+                      No recent logs recorded.
+                    </p>
+                  ) : (
+                    recentActivities.map((activity) => (
+                      <div key={activity.id} className="flex gap-4 group cursor-default">
+                        <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0 shadow-glow shadow-primary/40 group-hover:scale-125 transition-transform" />
+                        <div>
+                          <p className="text-sm font-semibold text-foreground leading-tight">
+                            {activity.action}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                            {activity.details}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/50 mt-1 font-bold italic">
+                            {new Date(activity.created_at).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <AppButton variant="ghost" className="w-full mt-8" size="sm">
+                  View Audit Log
+                </AppButton>
+              </GlassPanel>
             </div>
-            <AppButton variant="ghost" className="w-full mt-8" size="sm">
-              View Audit Log
-            </AppButton>
-          </GlassPanel>
-        </div>
+          </>
+        )}
       </PageContainer>
     </DashboardLayout>
   );

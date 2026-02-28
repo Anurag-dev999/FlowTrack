@@ -71,13 +71,13 @@ export default function LoginPage() {
             Welcome to <span className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">FlowTrack</span>
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed font-medium">
-            The premium workspace for tracking tasks, managing revenue, and leading your team to success. Everything you need, unified in one elegant dashboard.
+            The premium workspace for tracking tasks, measuring productivity, and leading your team to success. Everything you need, unified in one elegant dashboard.
           </p>
 
           <div className="space-y-4">
             {[
               { title: 'Task Management', desc: 'Organize, assign, and track progress effortlessly.' },
-              { title: 'Revenue Analytics', desc: 'Real-time granular insights into your cash flow.' },
+              { title: 'Productivity Analytics', desc: 'Real-time insights into your team\'s output and efficiency.' },
               { title: 'Team Collaboration', desc: 'Built-in tools to keep your organization synced.' }
             ].map((feature, idx) => (
               <div key={idx} className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-sm transition-all hover:bg-slate-100 dark:hover:bg-white/10 shadow-sm">

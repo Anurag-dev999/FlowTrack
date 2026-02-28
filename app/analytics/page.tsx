@@ -1,112 +1,153 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { RevenueChart, WeeklyActivityChart, CompletionRateChart } from '@/components/dynamic-charts';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { MetricCard } from '@/components/ui/metric-card';
-import { TrendingUp, Users, CheckCircle2, DollarSign } from 'lucide-react';
+import { TrendingUp, ListTodo, CheckCircle2, Zap } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
+import { Task } from '@/lib/types';
+import {
+  computeDashboardMetrics,
+  productivityValueTrend,
+  tasksPerWeek,
+} from '@/lib/analytics';
 
 export default function AnalyticsPage() {
-  const [metrics, setMetrics] = useState({
-    totalRevenue: '$0',
-    activeUsers: '0',
-    completedTasks: '0',
-    efficiency: '0%',
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMetrics();
+    fetchTasks();
   }, []);
 
-  const fetchMetrics = async () => {
+  const fetchTasks = async () => {
     try {
-      const [revRes, usersRes, tasksRes] = await Promise.all([
-        supabaseClient.from('revenue').select('amount'),
-        supabaseClient.from('team_members').select('id'),
-        supabaseClient.from('tasks').select('id').eq('status', 'Completed'),
-      ]);
+      const { data, error } = await supabaseClient
+        .from('tasks')
+        .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at');
 
-      const totalRevenue = revRes.data?.reduce((sum, item) => sum + item.amount, 0) || 0;
-      
-      setMetrics({
-        totalRevenue: `$${totalRevenue.toLocaleString()}`,
-        activeUsers: (usersRes.data?.length || 0).toString(),
-        completedTasks: (tasksRes.data?.length || 0).toString(),
-        efficiency: '84%', 
-      });
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch metrics:', error);
+      if (!error && data) {
+        setTasks(
+          data.map((t: any) => ({
+            ...t,
+            estimated_value: t.estimated_value ?? 10,
+          }))
+        );
+      }
+    } catch {
+      // empty state will show
+    } finally {
       setLoading(false);
     }
   };
 
+  // Memoize all analytics
+  const metrics = useMemo(() => computeDashboardMetrics(tasks), [tasks]);
+  const valueTrend = useMemo(() => productivityValueTrend(tasks), [tasks]);
+  const weeklyData = useMemo(() => tasksPerWeek(tasks), [tasks]);
+  // Extract completion rate from valueTrend for the rate chart
+  const completionRateData = useMemo(
+    () => valueTrend.map((w) => ({ week: w.week, rate: w.rate })),
+    [valueTrend]
+  );
+
+  const hasTasks = tasks.length > 0;
+  const growth = metrics.weeklyGrowth;
+  const growthTrend =
+    growth !== 0
+      ? { value: `${Math.abs(growth)}%`, isUp: growth > 0 }
+      : undefined;
+
   return (
     <DashboardLayout>
       <PageContainer>
-        <PageHeader 
-          title="Performance Analytics" 
-          description="In-depth insights into your organization's productivity and revenue" 
+        <PageHeader
+          title="Performance Analytics"
+          description="In-depth insights into your team's productivity, derived from task data"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard
-            title="Total Revenue"
-            value={metrics.totalRevenue}
-            icon={DollarSign}
-            trend={{ value: '12%', isUp: true }}
-            color="green"
-          />
-          <MetricCard
-            title="Active Users"
-            value={metrics.activeUsers}
-            icon={Users}
-            trend={{ value: '4%', isUp: true }}
-            color="blue"
-          />
-          <MetricCard
-            title="Completed Tasks"
-            value={metrics.completedTasks}
-            icon={CheckCircle2}
-            trend={{ value: '18%', isUp: true }}
-            color="purple"
-          />
-          <MetricCard
-            title="Avg Efficiency"
-            value={metrics.efficiency}
-            icon={TrendingUp}
-            trend={{ value: '2%', isUp: true }}
-            color="orange"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <GlassPanel className="p-6">
-            <h3 className="text-lg font-semibold mb-6">Revenue Growth</h3>
-            <div className="h-[300px]">
-              <RevenueChart />
-            </div>
+        {!hasTasks && !loading ? (
+          <GlassPanel className="p-12 text-center">
+            <p className="text-muted-foreground">
+              No task data yet. Create and complete tasks to see analytics here.
+            </p>
           </GlassPanel>
-
-          <GlassPanel className="p-6">
-            <h3 className="text-lg font-semibold mb-6">Weekly Activity</h3>
-            <div className="h-[300px]">
-              <WeeklyActivityChart />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MetricCard
+                title="Productivity Value"
+                value={metrics.productivityValue.toString()}
+                icon={Zap}
+                trend={growthTrend}
+                color="green"
+              />
+              <MetricCard
+                title="Total Tasks"
+                value={metrics.totalTasks.toString()}
+                icon={ListTodo}
+                color="blue"
+              />
+              <MetricCard
+                title="Completed Tasks"
+                value={metrics.completedTasks.toString()}
+                icon={CheckCircle2}
+                color="purple"
+              />
+              <MetricCard
+                title="Completion Rate"
+                value={`${metrics.completionRate}%`}
+                icon={TrendingUp}
+                color="orange"
+              />
             </div>
-          </GlassPanel>
 
-          <GlassPanel className="p-6 lg:col-span-2">
-            <h3 className="text-lg font-semibold mb-6">Task Completion Rate</h3>
-            <div className="h-[300px]">
-              <CompletionRateChart />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <GlassPanel className="p-6">
+                <h3 className="text-lg font-semibold mb-6">Productivity Value Trend</h3>
+                <div className="h-[300px]">
+                  {valueTrend.some((w) => w.value > 0) ? (
+                    <RevenueChart data={valueTrend} dataKey="value" />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
+                      Complete tasks to see the productivity trend
+                    </div>
+                  )}
+                </div>
+              </GlassPanel>
+
+              <GlassPanel className="p-6">
+                <h3 className="text-lg font-semibold mb-6">Weekly Activity</h3>
+                <div className="h-[300px]">
+                  {weeklyData.some((w) => w.created > 0 || w.completed > 0) ? (
+                    <WeeklyActivityChart data={weeklyData} />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
+                      Start creating tasks to see weekly activity
+                    </div>
+                  )}
+                </div>
+              </GlassPanel>
+
+              <GlassPanel className="p-6 lg:col-span-2">
+                <h3 className="text-lg font-semibold mb-6">Task Completion Rate</h3>
+                <div className="h-[300px]">
+                  {completionRateData.some((w) => w.rate > 0) ? (
+                    <CompletionRateChart data={completionRateData} />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
+                      Complete tasks to track your completion rate over time
+                    </div>
+                  )}
+                </div>
+              </GlassPanel>
             </div>
-          </GlassPanel>
-        </div>
+          </>
+        )}
       </PageContainer>
     </DashboardLayout>
   );

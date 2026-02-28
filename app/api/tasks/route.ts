@@ -12,6 +12,9 @@ function isConnectionError(msg: string): boolean {
   );
 }
 
+const TASK_FIELDS =
+  'id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at';
+
 function getClient(request: Request) {
   const authHeader = request.headers.get('Authorization');
   return createClient(
@@ -26,7 +29,7 @@ export async function GET(request: Request) {
   try {
     const { data, error } = await supabase
       .from('tasks')
-      .select('*')
+      .select(TASK_FIELDS)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -42,7 +45,6 @@ export async function GET(request: Request) {
     if (isConnectionError(msg)) {
       return NextResponse.json([]);
     }
-    console.error('Tasks API error:', msg.slice(0, 200));
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 });
   }
 }
@@ -57,19 +59,26 @@ export async function POST(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       if (!isConnectionError(authError?.message || '')) {
-        console.warn('Auth error or no user:', authError?.message);
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
     body = await request.json();
-    const { title, description, priority, status, due_date } = body;
+    const { title, description, priority, status, due_date, estimated_value } = body;
 
     if (!title || !due_date) {
       return NextResponse.json({ error: 'Title and due date are required' }, { status: 400 });
     }
 
-    const payload: any = { title, description, priority: priority || 'medium', status: status || 'pending', due_date };
+    const payload: any = {
+      title,
+      description,
+      priority: priority || 'medium',
+      status: status || 'todo',
+      due_date,
+      estimated_value: estimated_value ?? 10,
+      completed_at: status === 'completed' ? new Date().toISOString() : null,
+    };
     if (user) {
       payload.user_id = user.id;
     }
@@ -77,14 +86,15 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('tasks')
       .insert([payload])
-      .select();
+      .select(TASK_FIELDS);
 
     if (error) {
       if (isConnectionError(error.message || '')) {
-        // Return optimistic task so UI still works when offline
         return NextResponse.json([{
           ...body,
           id: `offline-${Date.now()}`,
+          estimated_value: estimated_value ?? 10,
+          completed_at: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }]);
@@ -110,11 +120,12 @@ export async function POST(request: Request) {
       return NextResponse.json([{
         ...body,
         id: `offline-${Date.now()}`,
+        estimated_value: body.estimated_value ?? 10,
+        completed_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }]);
     }
-    console.error('Create task error:', msg.slice(0, 200));
     return NextResponse.json({ error: 'Failed to create task. Please try again.' }, { status: 500 });
   }
 }

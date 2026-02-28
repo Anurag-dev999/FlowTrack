@@ -37,7 +37,7 @@ export async function PATCH(
       .from('tasks')
       .update(updatePayload)
       .eq('id', id)
-      .select();
+      .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at');
 
     if (error) {
       if (isConnectionError(error.message || '')) {
@@ -66,7 +66,7 @@ export async function PATCH(
     if (isConnectionError(msg)) {
       return NextResponse.json({ success: true });
     }
-    console.error('Update task error:', msg.slice(0, 200));
+    // connection error — swallowed
     return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
   }
 }
@@ -108,7 +108,7 @@ export async function DELETE(
     if (isConnectionError(msg)) {
       return NextResponse.json({ success: true });
     }
-    console.error('Delete task error:', msg.slice(0, 200));
+    // connection error — swallowed
     return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
   }
 }
