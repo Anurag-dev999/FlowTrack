@@ -1,0 +1,16 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="180" y2="180">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="40" y1="40" x2="140" y2="140">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="37" fill="url(#bg)"/>
+  <!-- Stylized F with flow arrow -->
+  <path d="M50 45 H130 V65 H75 V82 H115 V102 H75 V135 H55 V45 Z" fill="url(#fg)" opacity="0.9"/>
+  <path d="M115 102 L140 90 L115 78" stroke="url(#fg)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
