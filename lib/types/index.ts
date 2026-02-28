@@ -22,6 +22,9 @@ export interface TeamMember {
   email: string;
   role: string;
   avatar_url?: string;
+  avatar_color?: string;
+  phone?: string;
+  joined_date: string;
   created_at: string;
 }
 

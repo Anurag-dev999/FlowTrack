@@ -193,5 +193,5 @@ $$;
 -- ============================================================
 -- Done! Your FlowTrack database is ready.
 -- Tables: tasks, team_members, activity_logs
--- No revenue table — productivity value is derived from tasks.
+-- Productivity value is derived from tasks.
 -- ============================================================
