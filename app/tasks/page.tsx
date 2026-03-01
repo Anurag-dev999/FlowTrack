@@ -32,6 +32,16 @@ export default function TasksPage() {
   useEffect(() => {
     fetchTasks();
     fetchTeamMembers();
+
+    // Real-time sync — auto-refresh when tasks change in DB
+    const channel = supabaseClient
+      .channel('tasks_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        fetchTasks();
+      })
+      .subscribe();
+
+    return () => { supabaseClient.removeChannel(channel); };
   }, []);
 
   const fetchTeamMembers = async () => {

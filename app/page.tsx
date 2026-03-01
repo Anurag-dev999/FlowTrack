@@ -24,16 +24,13 @@ export default function DashboardPage() {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
   const fetchDashboardData = async () => {
     try {
       const [tasksRes, teamRes, activityRes] = await Promise.all([
         supabaseClient
           .from('tasks')
-          .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at'),
+          .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at')
+          .is('deleted_at', null),
         supabaseClient.from('team_members').select('id'),
         supabaseClient
           .from('activity_logs')
@@ -56,6 +53,38 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    // ── Real-time subscriptions ────────────────────────────────────
+    const taskChannel = supabaseClient
+      .channel('dashboard_tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    const teamChannel = supabaseClient
+      .channel('dashboard_team')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    const activityChannel = supabaseClient
+      .channel('dashboard_activity')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    return () => {
+      supabaseClient.removeChannel(taskChannel);
+      supabaseClient.removeChannel(teamChannel);
+      supabaseClient.removeChannel(activityChannel);
+    };
+  }, []);
 
   // Memoize analytics to avoid recomputation on every render
   const metrics = useMemo(() => computeDashboardMetrics(tasks), [tasks]);
@@ -140,9 +169,10 @@ export default function DashboardPage() {
                 color="orange"
                 href="/analytics"
               />
+              {/* Use actual teamSize from DB — not derived from task assignees */}
               <MetricCard
                 title="Active Team"
-                value={workspaceStats.activeMembersCount.toString()}
+                value={teamSize.toString()}
                 icon={Users}
                 color="purple"
                 href="/team"
@@ -172,36 +202,41 @@ export default function DashboardPage() {
                 </div>
               </GlassPanel>
 
-              {/* Activity Log */}
+              {/* Recent Activity */}
               <GlassPanel className="p-6">
                 <h3 className="text-lg font-semibold mb-6">Recent Activity</h3>
                 <div className="space-y-6">
                   {recentActivities.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic text-center py-8">
-                      No recent logs recorded.
+                      No recent activity yet. Actions like adding tasks and team members will appear here.
                     </p>
                   ) : (
                     recentActivities.map((activity) => (
                       <div key={activity.id} className="flex gap-4 group cursor-default">
                         <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0 shadow-glow shadow-primary/40 group-hover:scale-125 transition-transform" />
                         <div>
-                          <p className="text-sm font-semibold text-foreground leading-tight">
+                          <p className="text-sm font-semibold text-foreground leading-tight capitalize">
                             {activity.action}
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-1 font-medium">
                             {activity.details}
                           </p>
                           <p className="text-[10px] text-muted-foreground/50 mt-1 font-bold italic">
-                            {new Date(activity.created_at).toLocaleTimeString()}
+                            {new Date(activity.created_at).toLocaleString()}
                           </p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-                <AppButton variant="ghost" className="w-full mt-8" size="sm">
-                  View Audit Log
-                </AppButton>
+                {/* Replaced dummy "View Audit Log" with real link to analytics */}
+                {recentActivities.length > 0 && (
+                  <Link href="/analytics">
+                    <AppButton variant="ghost" className="w-full mt-8" size="sm">
+                      View Full Analytics
+                    </AppButton>
+                  </Link>
+                )}
               </GlassPanel>
             </div>
           </>
