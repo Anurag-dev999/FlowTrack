@@ -122,18 +122,21 @@ export default function DashboardPage() {
                 value={metrics.pendingTasks.toString()}
                 icon={Clock}
                 color="orange"
+                href="/tasks"
               />
               <MetricCard
                 title="Completed Tasks"
                 value={metrics.completedTasks.toString()}
                 icon={CheckCircle2}
-                color="purple"
+                color="green"
+                href="/tasks"
               />
               <MetricCard
-                title="Team Size"
+                title="Total Team"
                 value={teamSize.toString()}
                 icon={Users}
-                color="blue"
+                color="purple"
+                href="/team"
               />
             </div>
 
@@ -145,8 +148,8 @@ export default function DashboardPage() {
                   {growth !== 0 && (
                     <div
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold ${growth > 0
-                          ? 'bg-green-500/10 text-green-500'
-                          : 'bg-red-500/10 text-red-500'
+                        ? 'bg-green-500/10 text-green-500'
+                        : 'bg-red-500/10 text-red-500'
                         }`}
                     >
                       <TrendingUp className="w-3 h-3" />

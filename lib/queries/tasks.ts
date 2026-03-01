@@ -2,11 +2,11 @@ import { serverQuery } from '@/lib/supabase/server';
 import { Task, TaskFilters } from '@/lib/types';
 
 const TASK_FIELDS =
-  'id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at';
+  'id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at';
 
 export async function getTasks(filters?: TaskFilters): Promise<{ data: Task[] | null; error: string | null }> {
   return serverQuery<Task[]>(async (client) => {
-    let query = client.from('tasks').select(TASK_FIELDS);
+    let query = client.from('tasks').select(TASK_FIELDS).filter('deleted_at', 'is', null);
 
     if (filters?.status && filters.status !== 'all') {
       query = query.eq('status', filters.status);
@@ -62,7 +62,10 @@ export async function updateTask(
 
 export async function deleteTask(id: string): Promise<{ error: string | null }> {
   const { error } = await serverQuery(async (client) => {
-    return client.from('tasks').delete().eq('id', id);
+    return client
+      .from('tasks')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
   });
 
   return { error };
@@ -73,7 +76,10 @@ export async function getTaskStats(): Promise<{
   error: string | null;
 }> {
   return serverQuery(async (client) => {
-    const { data: tasks, error } = await client.from('tasks').select('status');
+    const { data: tasks, error } = await client
+      .from('tasks')
+      .select('status')
+      .filter('deleted_at', 'is', null);
 
     if (error) return { data: null, error };
 

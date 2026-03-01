@@ -28,7 +28,7 @@ export default function AnalyticsPage() {
     try {
       const { data, error } = await supabaseClient
         .from('tasks')
-        .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at');
+        .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at');
 
       if (!error && data) {
         setTasks(

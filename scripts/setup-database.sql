@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   assignee VARCHAR(255),
   estimated_value INTEGER NOT NULL DEFAULT 10,
   completed_at TIMESTAMP WITH TIME ZONE,
+  deleted_at TIMESTAMP WITH TIME ZONE,
   due_date TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -67,12 +68,12 @@ BEGIN
     ALTER TABLE tasks ADD COLUMN estimated_value INTEGER NOT NULL DEFAULT 10;
   END IF;
 
-  -- Add completed_at to tasks if missing
+  -- Add deleted_at to tasks if missing
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'tasks' AND column_name = 'completed_at'
+    WHERE table_name = 'tasks' AND column_name = 'deleted_at'
   ) THEN
-    ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE;
+    ALTER TABLE tasks ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE;
   END IF;
 
   -- Add assignee to tasks if missing
@@ -141,14 +142,7 @@ WHERE status = 'completed' AND completed_at IS NULL;
 -- │  5. SEED DATA — Team Members                             │
 -- └──────────────────────────────────────────────────────────┘
 
-INSERT INTO team_members (name, email, role, avatar_url, avatar_color, phone, joined_date) VALUES
-  ('Alice Johnson', 'alice@flowtrack.com', 'Product Manager', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice', 'blue', '+1-555-0101', '2024-01-01'),
-  ('Bob Smith', 'bob@flowtrack.com', 'Lead Developer', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob', 'green', '+1-555-0102', '2024-01-05'),
-  ('Carol Williams', 'carol@flowtrack.com', 'Designer', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Carol', 'purple', '+1-555-0103', '2024-01-10'),
-  ('David Brown', 'david@flowtrack.com', 'QA Engineer', 'https://api.dicebear.com/7.x/avataaars/svg?seed=David', 'orange', '+1-555-0104', '2024-02-01'),
-  ('Eva Davis', 'eva@flowtrack.com', 'DevOps Engineer', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Eva', 'pink', '+1-555-0105', '2024-02-15'),
-  ('Frank Miller', 'frank@flowtrack.com', 'Business Analyst', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Frank', 'blue', '+1-555-0106', '2024-03-01')
-ON CONFLICT (email) DO NOTHING;
+-- Seed data removed - Add members via the Team UI.
 
 -- ┌──────────────────────────────────────────────────────────┐
 -- │  6. ROW LEVEL SECURITY                                   │

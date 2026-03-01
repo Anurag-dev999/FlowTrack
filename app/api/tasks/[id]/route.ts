@@ -37,7 +37,7 @@ export async function PATCH(
       .from('tasks')
       .update(updatePayload)
       .eq('id', id)
-      .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at');
+      .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at');
 
     if (error) {
       if (isConnectionError(error.message || '')) {
@@ -79,7 +79,10 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    const { error } = await supabase
+      .from('tasks')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
 
     if (error) {
       if (isConnectionError(error.message || '')) {

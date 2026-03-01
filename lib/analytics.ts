@@ -8,22 +8,23 @@ import { Task, KPIMetrics } from '@/lib/types';
 // ─── Core Counters ───────────────────────────────────────
 
 export function totalTasks(tasks: Task[]): number {
-    return tasks.length;
+    return tasks.filter(t => !t.deleted_at).length;
 }
 
 export function completedTasks(tasks: Task[]): number {
-    return tasks.filter((t) => t.status === 'completed').length;
+    return tasks.filter((t) => t.status === 'completed' && !t.deleted_at).length;
 }
 
 export function pendingTasks(tasks: Task[]): number {
-    return tasks.filter((t) => t.status !== 'completed').length;
+    return tasks.filter((t) => t.status !== 'completed' && !t.deleted_at).length;
 }
 
 // ─── Rates & Revenue ─────────────────────────────────────
 
 export function completionRate(tasks: Task[]): number {
-    if (tasks.length === 0) return 0;
-    return Math.round((completedTasks(tasks) / tasks.length) * 100);
+    const activeTasks = tasks.filter(t => !t.deleted_at);
+    if (activeTasks.length === 0) return 0;
+    return Math.round((completedTasks(tasks) / activeTasks.length) * 100);
 }
 
 /**
@@ -31,6 +32,7 @@ export function completionRate(tasks: Task[]): number {
  * This is the "revenue" concept — no money, just productivity value.
  */
 export function productivityRevenue(tasks: Task[]): number {
+    // Keep value from deleted tasks to "save older records"
     return tasks
         .filter((t) => t.status === 'completed')
         .reduce((sum, t) => sum + (t.estimated_value || 10), 0);

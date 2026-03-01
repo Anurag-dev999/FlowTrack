@@ -12,6 +12,7 @@ export interface Task {
   due_date: string;
   estimated_value: number;
   completed_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }

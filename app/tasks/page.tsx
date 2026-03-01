@@ -12,7 +12,7 @@ import { AppButton } from '@/components/ui/app-button';
 import { AppInput } from '@/components/ui/app-input';
 
 const TASK_FIELDS =
-  'id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,created_at,updated_at';
+  'id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at';
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -37,6 +37,7 @@ export default function TasksPage() {
     const { data, error } = await supabaseClient
       .from('tasks')
       .select(TASK_FIELDS)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -149,10 +150,10 @@ export default function TasksPage() {
                   <div className="flex justify-between items-start mb-4">
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${task.priority === 'high'
-                          ? 'bg-red-500/10 text-red-500'
-                          : task.priority === 'medium'
-                            ? 'bg-yellow-500/10 text-yellow-500'
-                            : 'bg-blue-500/10 text-blue-500'
+                        ? 'bg-red-500/10 text-red-500'
+                        : task.priority === 'medium'
+                          ? 'bg-yellow-500/10 text-yellow-500'
+                          : 'bg-blue-500/10 text-blue-500'
                         }`}
                     >
                       {task.priority}
