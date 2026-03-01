@@ -22,18 +22,39 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Client-side auth guard + fetch user email
+  // Client-side auth guard with session-change listener
   useEffect(() => {
+    let mounted = true;
+
     const checkAuth = async () => {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
-        router.push('/login?redirect_to=' + encodeURIComponent(pathname));
-        return;
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!mounted) return;
+        if (!user) {
+          router.replace('/login?redirect_to=' + encodeURIComponent(pathname));
+          return;
+        }
+        setUserEmail(user.email || '');
+        setAuthChecked(true);
+      } catch {
+        // Network failure — still show loading but don't crash
+        if (mounted) setAuthChecked(true);
       }
-      setUserEmail(user.email || '');
-      setAuthChecked(true);
     };
+
     checkAuth();
+
+    // Listen for sign-out / token expiry — redirect immediately
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        router.replace('/login');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [pathname, router]);
 
   // Initialize dark mode from system preference or localStorage

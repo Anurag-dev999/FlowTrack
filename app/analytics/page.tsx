@@ -22,6 +22,15 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchTasks();
+
+    const channel = supabaseClient
+      .channel('analytics_tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        fetchTasks();
+      })
+      .subscribe();
+
+    return () => { supabaseClient.removeChannel(channel); };
   }, []);
 
   const fetchTasks = async () => {
