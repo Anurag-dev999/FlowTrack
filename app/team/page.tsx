@@ -188,17 +188,16 @@ export default function TeamPage() {
   return (
     <DashboardLayout>
       <PageContainer>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <PageHeader
-            title="Team Members"
-            description={`Coordinate with your ${members.length} team members`}
-            className="mb-0"
-          />
-          <AppButton onClick={handleOpenAddModal} className="w-full sm:w-auto">
-            <UserPlus className="w-4 h-4 mr-2" />
-            Add Member
-          </AppButton>
-        </div>
+        <PageHeader
+          title="Team Members"
+          description={`Coordinate with your ${members.length} team members`}
+          actions={
+            <AppButton onClick={handleOpenAddModal} className="w-full sm:w-auto">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Member
+            </AppButton>
+          }
+        />
 
         {loading && members.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
