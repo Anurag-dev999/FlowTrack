@@ -64,7 +64,22 @@ export async function POST(request: Request) {
     }
 
     body = await request.json();
-    const { title, description, priority, status, due_date, estimated_value } = body;
+    const { title, description, priority, status, due_date, estimated_value, assignee } = body;
+
+    let finalAssignee = assignee;
+
+    if (user && !finalAssignee) {
+      // Find matching team_members.id for the current user to auto-assign
+      const { data: memberData } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (memberData) {
+        finalAssignee = memberData.id;
+      }
+    }
 
     if (!title || !due_date) {
       return NextResponse.json({ error: 'Title and due date are required' }, { status: 400 });
@@ -78,6 +93,7 @@ export async function POST(request: Request) {
       due_date,
       estimated_value: estimated_value ?? 10,
       completed_at: status === 'completed' ? new Date().toISOString() : null,
+      assignee: finalAssignee || null,
     };
     if (user) {
       payload.user_id = user.id;

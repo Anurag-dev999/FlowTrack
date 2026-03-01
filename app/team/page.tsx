@@ -25,11 +25,11 @@ import {
 import { TeamMember } from '@/lib/types';
 import { toast } from "sonner";
 import { supabaseClient } from '@/lib/supabase/client';
+import { getMemberStats, MemberStats } from '@/lib/analytics';
 import { cn } from '@/lib/utils'; // Assuming cn utility is available
 
 interface EnrichedMember extends TeamMember {
-  task_count: number;
-  activity_count: number;
+  stats: MemberStats;
 }
 
 const AVATAR_COLORS = [
@@ -70,26 +70,18 @@ export default function TeamPage() {
 
       if (data.error) throw new Error(data.error);
 
-      // Simple enrichment - in a real app, use a join or view
-      const enrichedMembers = await Promise.all(
-        (data || []).map(async (member: TeamMember) => {
-          const { count: taskCount } = await supabaseClient
-            .from('tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('assignee', member.name);
+      // Fetch all tasks to compute stats for members
+      const { data: tasks } = await supabaseClient
+        .from('tasks')
+        .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at');
 
-          const { count: activityCount } = await supabaseClient
-            .from('activity_logs')
-            .select('*', { count: 'exact', head: true })
-            .eq('entity_id', member.id);
-
-          return {
-            ...member,
-            task_count: taskCount || 0,
-            activity_count: activityCount || 0,
-          };
-        })
-      );
+      const enrichedMembers = (data || []).map((member: TeamMember) => {
+        const stats = getMemberStats(member.id, tasks || []);
+        return {
+          ...member,
+          stats
+        };
+      });
 
       setMembers(enrichedMembers);
     } catch (error: any) {
@@ -280,13 +272,19 @@ export default function TeamPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 rounded-xl bg-muted/30 border border-border/30">
-                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Total Tasks</p>
-                    <p className="text-2xl font-black text-foreground">{member.task_count}</p>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Tasks</p>
+                    <p className="text-2xl font-black text-foreground">
+                      {member.stats.completedTasks} <span className="text-sm font-medium text-muted-foreground border-l border-border/50 pl-1 ml-1">{member.stats.assignedTasks}</span>
+                    </p>
                   </div>
                   <div className="p-3 rounded-xl bg-muted/30 border border-border/30">
-                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Activities</p>
-                    <p className="text-2xl font-black text-foreground">{member.activity_count}</p>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Efficiency</p>
+                    <p className="text-2xl font-black text-foreground">{member.stats.efficiencyRate}%</p>
                   </div>
+                </div>
+                <div className="mt-4 p-3 rounded-xl bg-green-500/5 border border-green-500/10">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1 text-green-600/70 dark:text-green-400/70">Productivity Value</p>
+                  <p className="text-lg font-black text-green-600 dark:text-green-400">{member.stats.productivityRevenue}</p>
                 </div>
               </GlassPanel>
             ))}

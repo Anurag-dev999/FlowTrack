@@ -16,6 +16,7 @@ const TASK_FIELDS =
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTask, setNewTask] = useState({
@@ -30,7 +31,13 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchTasks();
+    fetchTeamMembers();
   }, []);
+
+  const fetchTeamMembers = async () => {
+    const { data } = await supabaseClient.from('team_members').select('id, name');
+    if (data) setTeamMembers(data);
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -195,7 +202,7 @@ export default function TasksPage() {
                         <User className="w-3 h-3 text-primary" />
                       </div>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {task.assignee}
+                        {teamMembers.find(m => m.id === task.assignee)?.name || 'Unassigned'}
                       </span>
                     </div>
                     <span
@@ -233,12 +240,23 @@ export default function TasksPage() {
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
               />
               <div className="grid grid-cols-2 gap-4">
-                <AppInput
-                  label="Assignee"
-                  placeholder="Name"
-                  value={newTask.assignee}
-                  onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value })}
-                />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground ml-1">
+                    Assignee
+                  </label>
+                  <select
+                    className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    value={newTask.assignee}
+                    onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value })}
+                  >
+                    <option value="">Auto-assign to me</option>
+                    {teamMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground ml-1">
                     Priority

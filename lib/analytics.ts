@@ -222,3 +222,68 @@ export function computeDashboardMetrics(tasks: Task[]): KPIMetrics {
         weeklyGrowth: weeklyGrowth(tasks),
     };
 }
+
+// ─── Team & Workspace Analytics ──────────────────────────
+
+export interface MemberStats {
+    assignedTasks: number;
+    completedTasks: number;
+    efficiencyRate: number;
+    productivityRevenue: number;
+}
+
+export interface WorkspaceStats {
+    totalProductivity: number;
+    teamCompletionRate: number;
+    topPerformerId: string | null;
+    activeMembersCount: number;
+}
+
+export function getMemberStats(memberId: string, tasks: Task[]): MemberStats {
+    const memberTasks = tasks.filter(t => t.assignee === memberId && !t.deleted_at);
+
+    const assigned = memberTasks.length;
+    const completed = memberTasks.filter(t => t.status === 'completed').length;
+    const efficiency = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
+
+    // Revenue from completed and deleted tasks assigned to the member (historical persistence)
+    const allMemberTasks = tasks.filter(t => t.assignee === memberId);
+    const revenue = productivityRevenue(allMemberTasks);
+
+    return {
+        assignedTasks: assigned,
+        completedTasks: completed,
+        efficiencyRate: efficiency,
+        productivityRevenue: revenue
+    };
+}
+
+export function getWorkspaceStats(tasks: Task[]): WorkspaceStats {
+    const activeTasks = tasks.filter(t => !t.deleted_at);
+
+    const totalProd = productivityRevenue(tasks);
+    const completion = completionRate(tasks);
+
+    // Find active members
+    const assignees = new Set(activeTasks.map(t => t.assignee).filter(Boolean));
+
+    // Find top performer
+    let topPerformerId: string | null = null;
+    let maxCompleted = -1;
+
+    assignees.forEach(assignee => {
+        if (!assignee) return;
+        const completed = activeTasks.filter(t => t.assignee === assignee && t.status === 'completed').length;
+        if (completed > maxCompleted) {
+            maxCompleted = completed;
+            topPerformerId = assignee;
+        }
+    });
+
+    return {
+        totalProductivity: totalProd,
+        teamCompletionRate: completion,
+        topPerformerId: maxCompleted > 0 ? topPerformerId : null,
+        activeMembersCount: assignees.size
+    };
+}

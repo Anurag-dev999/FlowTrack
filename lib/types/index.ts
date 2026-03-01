@@ -19,6 +19,8 @@ export interface Task {
 
 export interface TeamMember {
   id: string;
+  user_id?: string;
+  workspace_id?: string;
   name: string;
   email: string;
   role: string;

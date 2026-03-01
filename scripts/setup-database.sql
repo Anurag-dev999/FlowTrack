@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   description TEXT,
   status VARCHAR(20) NOT NULL DEFAULT 'todo',
   priority VARCHAR(20) NOT NULL DEFAULT 'medium',
-  assignee VARCHAR(255),
+  assignee UUID REFERENCES team_members(id),
   estimated_value INTEGER NOT NULL DEFAULT 10,
   completed_at TIMESTAMP WITH TIME ZONE,
   deleted_at TIMESTAMP WITH TIME ZONE,
@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- Team members
 CREATE TABLE IF NOT EXISTS team_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  workspace_id UUID,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   avatar_url VARCHAR(500),
@@ -76,12 +78,12 @@ BEGIN
     ALTER TABLE tasks ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE;
   END IF;
 
-  -- Add assignee to tasks if missing
+  -- Add assignee to tasks if missing (or try altering it if it exists as VARCHAR)
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'tasks' AND column_name = 'assignee'
   ) THEN
-    ALTER TABLE tasks ADD COLUMN assignee VARCHAR(255);
+    ALTER TABLE tasks ADD COLUMN assignee UUID REFERENCES team_members(id);
   END IF;
 
   -- Add user_id to tasks if missing
@@ -139,10 +141,36 @@ UPDATE tasks SET completed_at = COALESCE(updated_at, created_at)
 WHERE status = 'completed' AND completed_at IS NULL;
 
 -- ┌──────────────────────────────────────────────────────────┐
--- │  5. SEED DATA — Team Members                             │
+-- │  5. AUTO-CREATE TEAM MEMBER TRIGGER LOGIC                │
 -- └──────────────────────────────────────────────────────────┘
 
--- Seed data removed - Add members via the Team UI.
+-- Automatically insert a row into team_members when a new user signs up in auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.team_members (user_id, email, name, role)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    'member'
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create the trigger if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'on_auth_user_created'
+  ) THEN
+    CREATE TRIGGER on_auth_user_created
+      AFTER INSERT ON auth.users
+      FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+  END IF;
+END
+$$;
 
 -- ┌──────────────────────────────────────────────────────────┐
 -- │  6. ROW LEVEL SECURITY                                   │

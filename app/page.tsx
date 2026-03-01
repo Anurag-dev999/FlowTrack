@@ -14,6 +14,7 @@ import { WeeklyActivityChart } from '@/components/dynamic-charts';
 import {
   computeDashboardMetrics,
   tasksPerWeek,
+  getWorkspaceStats
 } from '@/lib/analytics';
 import Link from 'next/link';
 
@@ -58,6 +59,7 @@ export default function DashboardPage() {
 
   // Memoize analytics to avoid recomputation on every render
   const metrics = useMemo(() => computeDashboardMetrics(tasks), [tasks]);
+  const workspaceStats = useMemo(() => getWorkspaceStats(tasks), [tasks]);
   const weeklyChartData = useMemo(() => tasksPerWeek(tasks), [tasks]);
 
   const hasTasks = tasks.length > 0;
@@ -112,7 +114,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Productivity Value"
-                value={metrics.productivityValue.toString()}
+                value={workspaceStats.totalProductivity.toString()}
                 icon={Zap}
                 trend={growthTrend}
                 color="green"
@@ -132,8 +134,15 @@ export default function DashboardPage() {
                 href="/tasks"
               />
               <MetricCard
-                title="Total Team"
-                value={teamSize.toString()}
+                title="Team Efficiency"
+                value={`${workspaceStats.teamCompletionRate}%`}
+                icon={TrendingUp}
+                color="orange"
+                href="/analytics"
+              />
+              <MetricCard
+                title="Active Team"
+                value={workspaceStats.activeMembersCount.toString()}
                 icon={Users}
                 color="purple"
                 href="/team"
