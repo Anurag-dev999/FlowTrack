@@ -3,6 +3,17 @@ import { NextResponse } from 'next/server';
 
 const TEAM_FIELDS = 'id,name,email,role,avatar_url,avatar_color,phone,joined_date,created_at';
 
+function isConnectionError(msg: string): boolean {
+    return (
+        msg.includes('fetch failed') ||
+        msg.includes('SSL handshake') ||
+        msg.includes('<!DOCTYPE') ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('Failed to fetch')
+    );
+}
+
 function getClient(request: Request) {
     const authHeader = request.headers.get('Authorization');
     return createClient(
@@ -20,9 +31,18 @@ export async function GET(request: Request) {
             .select(TEAM_FIELDS)
             .order('name');
 
-        if (error) throw error;
+        if (error) {
+            if (isConnectionError(error.message || '')) {
+                return NextResponse.json([]);
+            }
+            throw error;
+        }
         return NextResponse.json(data);
     } catch (error: any) {
+        const msg = error?.message || String(error);
+        if (isConnectionError(msg)) {
+            return NextResponse.json([]);
+        }
         return NextResponse.json({ error: 'Failed to fetch team members' }, { status: 500 });
     }
 }
