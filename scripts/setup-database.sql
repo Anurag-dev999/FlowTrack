@@ -1,7 +1,5 @@
 -- ============================================================
 -- FlowTrack — Supabase Database Setup
--- Run this entire script in the Supabase SQL Editor (one shot).
--- It is safe to re-run: uses IF NOT EXISTS and ON CONFLICT.
 -- ============================================================
 
 -- ┌──────────────────────────────────────────────────────────┐
