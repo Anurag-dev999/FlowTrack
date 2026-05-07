@@ -114,7 +114,7 @@ export default function DashboardPage() {
     <DashboardLayout>
       <PageContainer>
         <PageHeader
-          title="Welcome to flowtrack"
+          title="Welcome to FlowTrack"
           description="Overview of your workspace performance and team activity"
         />
 
