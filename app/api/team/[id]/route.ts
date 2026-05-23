@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-const TEAM_FIELDS = 'id,name,email,role,avatar_url,avatar_color,phone,joined_date,created_at';
+const TEAM_FIELDS = 'id,name,email,role,avatar_color,phone,joined_date,created_at';
 
 function getClient(request: Request) {
     const authHeader = request.headers.get('Authorization');

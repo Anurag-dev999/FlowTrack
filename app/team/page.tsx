@@ -5,7 +5,6 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { Mail, Phone, Calendar, Edit2, Trash2, UserPlus, X } from 'lucide-react';
 import { PageContainer } from '@/components/ui/page-container';
 import { GlassPanel } from '@/components/ui/glass-panel';
-import { AppButton } from '@/components/ui/app-button';
 import { AppInput } from '@/components/ui/app-input';
 import { TeamMember } from '@/lib/types';
 import { toast } from "sonner";
@@ -25,6 +24,8 @@ const AVATAR_COLORS = [
   { label: 'Pink',   value: 'pink',   class: 'bg-pink-500' },
 ];
 
+const TEAM_FIELDS = 'id,name,email,role,avatar_color,phone,joined_date,created_at';
+
 export default function TeamPage() {
   const [members, setMembers]             = useState<EnrichedMember[]>([]);
   const [loading, setLoading]             = useState(true);
@@ -41,28 +42,26 @@ export default function TeamPage() {
   const fetchTeamMembers = useCallback(async () => {
     setLoading(true);
     try {
-      const token = (await supabaseClient.auth.getSession()).data.session?.access_token || '';
-      const response = await fetch('/api/team', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data: list, error } = await supabaseClient
+        .from('team_members')
+        .select(TEAM_FIELDS)
+        .order('name');
 
-      const json = await response.json();
-
-      // Any API error → show empty state with Add Member button
-      if (!response.ok || json?.error) {
-        console.warn('Team fetch warning:', json?.error || response.statusText);
+      if (error) {
+        console.error('Team fetch error:', error.code, error.message, error.details, error.hint);
+        toast.error(`Fetch failed: ${error.message}`);
         setMembers([]);
         return;
       }
 
-      const list: TeamMember[] = Array.isArray(json) ? json : [];
+      console.log('Team members fetched:', list?.length ?? 0, list);
 
       const { data: tasks } = await supabaseClient
         .from('tasks')
         .select('id,title,description,status,priority,assignee,due_date,estimated_value,completed_at,deleted_at,created_at,updated_at');
 
       setMembers(
-        list.map(m => ({ ...m, stats: getMemberStats(m.id, tasks || []) }))
+        (list || []).map(m => ({ ...m, stats: getMemberStats(m.id, tasks || []) }))
       );
     } catch (err: any) {
       console.warn('fetchTeamMembers error:', err?.message);
@@ -95,27 +94,46 @@ export default function TeamPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const token  = (await supabaseClient.auth.getSession()).data.session?.access_token || '';
-      const url    = editingMember ? `/api/team/${editingMember.id}` : '/api/team';
-      const method = editingMember ? 'PATCH' : 'POST';
+      // Get the current user's ID for RLS
+      const { data: { user } } = await supabaseClient.auth.getUser();
 
-      const res    = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          ...formData,
-          joined_date: editingMember ? editingMember.joined_date : new Date().toISOString(),
-        }),
-      });
+      if (editingMember) {
+        // UPDATE
+        const { error } = await supabaseClient
+          .from('team_members')
+          .update({
+            name: formData.name,
+            email: formData.email,
+            role: formData.role,
+            phone: formData.phone || null,
+            avatar_color: formData.avatar_color,
+          })
+          .eq('id', editingMember.id);
 
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
+        if (error) throw error;
+        toast.success('Member updated');
+      } else {
+        // INSERT — include user_id so RLS SELECT policy can find this row
+        const { error } = await supabaseClient
+          .from('team_members')
+          .insert([{
+            name: formData.name,
+            email: formData.email,
+            role: formData.role,
+            phone: formData.phone || null,
+            avatar_color: formData.avatar_color || 'blue',
+            joined_date: new Date().toISOString(),
+            ...(user?.id ? { user_id: user.id } : {}),
+          }]);
 
-      toast.success(editingMember ? 'Member updated' : 'Member added!');
+        if (error) throw error;
+        toast.success('Member added!');
+      }
+
       setIsModalOpen(false);
       fetchTeamMembers();
     } catch (err: any) {
-      toast.error(err.message || 'Action failed. Make sure Supabase RLS policies allow INSERT.');
+      toast.error(err.message || 'Action failed. Make sure Supabase RLS policies allow this operation.');
     } finally {
       setSubmitting(false);
     }
@@ -125,13 +143,12 @@ export default function TeamPage() {
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
     try {
-      const token = (await supabaseClient.auth.getSession()).data.session?.access_token || '';
-      const res   = await fetch(`/api/team/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
+      const { error } = await supabaseClient
+        .from('team_members')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       toast.success('Member removed');
       setDeletingId(null);
       fetchTeamMembers();
@@ -147,7 +164,7 @@ export default function TeamPage() {
     <DashboardLayout>
       <PageContainer>
 
-        {/* ── HEADER — Add Member button rendered directly, no parent component wrapping it ── */}
+        {/* ── HEADER ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Team Members</h1>
