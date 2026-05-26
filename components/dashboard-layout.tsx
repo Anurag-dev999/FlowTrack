@@ -108,7 +108,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         >
           <div className="flex items-center justify-between p-6 border-b border-border">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              FlowTrack
+              FlowTrac
             </h1>
             <button
               onClick={() => setSidebarOpen(false)}
